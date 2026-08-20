@@ -434,21 +434,22 @@ export async function restaurarBackup(json: string) {
       db.movimentacoes,
     ],
     async () => {
-      const tabelas = [
-        "projetos",
-        "categorias",
-        "unidades",
-        "empresas",
-        "funcionarios",
-        "locais",
-        "produtos",
-        "movimentacoes",
-      ] as const;
-      for (const t of tabelas) {
-        await db[t].clear();
-        const rows = (data[t] ?? []) as never[];
-        if (rows.length) await db[t].bulkPut(rows);
-      }
+      const put = async (
+        table: { clear: () => Promise<void>; bulkPut: (rows: never[]) => Promise<unknown> },
+        key: string,
+      ) => {
+        await table.clear();
+        const rows = (data[key] ?? []) as never[];
+        if (rows.length) await table.bulkPut(rows);
+      };
+      await put(db.projetos as never, "projetos");
+      await put(db.categorias as never, "categorias");
+      await put(db.unidades as never, "unidades");
+      await put(db.empresas as never, "empresas");
+      await put(db.funcionarios as never, "funcionarios");
+      await put(db.locais as never, "locais");
+      await put(db.produtos as never, "produtos");
+      await put(db.movimentacoes as never, "movimentacoes");
     },
   );
 }
