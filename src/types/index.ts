@@ -79,7 +79,7 @@ export interface Movimentacao {
   tipo: MovimentacaoTipo;
   produto_id: ID;
   quantidade: number; // sempre positivo
-  sinal?: 1 | -1; // usado por AJUSTE / TRANSFERENCIA
+  sinal?: (1 | -1) | undefined; // usado por AJUSTE / TRANSFERENCIA
   funcionario_id?: ID | null | undefined;
   encarregado_id?: ID | null | undefined;
   empresa_id?: ID | null | undefined;
