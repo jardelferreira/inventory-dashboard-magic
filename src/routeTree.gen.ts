@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppEstoqueRouteImport } from './routes/app.estoque'
+import { Route as AppMovimentacoesRouteImport } from './routes/app.movimentacoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,28 +30,45 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEstoqueRoute = AppEstoqueRouteImport.update({
+  id: '/estoque',
+  path: '/estoque',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMovimentacoesRoute = AppMovimentacoesRouteImport.update({
+  id: '/movimentacoes',
+  path: '/movimentacoes',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/estoque': typeof AppEstoqueRoute
+  '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/estoque': typeof AppEstoqueRoute
+  '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/estoque': typeof AppEstoqueRoute
+  '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/app/'
+  fullPaths: '/' | '/app' | '/app/estoque' | '/app/movimentacoes' | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app'
-  id: '__root__' | '/' | '/app' | '/app/'
+  to: '/' | '/app/estoque' | '/app/movimentacoes' | '/app'
+  id:
+    '__root__' | '/' | '/app' | '/app/estoque' | '/app/movimentacoes' | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -80,14 +99,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/estoque': {
+      id: '/app/estoque'
+      path: '/estoque'
+      fullPath: '/app/estoque'
+      preLoaderRoute: typeof AppEstoqueRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/movimentacoes': {
+      id: '/app/movimentacoes'
+      path: '/movimentacoes'
+      fullPath: '/app/movimentacoes'
+      preLoaderRoute: typeof AppMovimentacoesRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppEstoqueRoute: typeof AppEstoqueRoute
+  AppMovimentacoesRoute: typeof AppMovimentacoesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppEstoqueRoute: AppEstoqueRoute,
+  AppMovimentacoesRoute: AppMovimentacoesRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
