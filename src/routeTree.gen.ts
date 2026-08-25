@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppDadosRouteImport } from './routes/app.dados'
 import { Route as AppEstoqueRouteImport } from './routes/app.estoque'
+import { Route as AppLancarRouteImport } from './routes/app.lancar'
 import { Route as AppMovimentacoesRouteImport } from './routes/app.movimentacoes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,9 +32,19 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDadosRoute = AppDadosRouteImport.update({
+  id: '/dados',
+  path: '/dados',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEstoqueRoute = AppEstoqueRouteImport.update({
   id: '/estoque',
   path: '/estoque',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLancarRoute = AppLancarRouteImport.update({
+  id: '/lancar',
+  path: '/lancar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMovimentacoesRoute = AppMovimentacoesRouteImport.update({
@@ -44,13 +56,17 @@ const AppMovimentacoesRoute = AppMovimentacoesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
+  '/app/lancar': typeof AppLancarRoute
   '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
+  '/app/lancar': typeof AppLancarRoute
   '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app': typeof AppIndexRoute
 }
@@ -58,17 +74,39 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
+  '/app/lancar': typeof AppLancarRoute
   '/app/movimentacoes': typeof AppMovimentacoesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/app/estoque' | '/app/movimentacoes' | '/app/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/app/dados'
+    | '/app/estoque'
+    | '/app/lancar'
+    | '/app/movimentacoes'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app/estoque' | '/app/movimentacoes' | '/app'
+  to:
+    | '/'
+    | '/app/dados'
+    | '/app/estoque'
+    | '/app/lancar'
+    | '/app/movimentacoes'
+    | '/app'
   id:
-    '__root__' | '/' | '/app' | '/app/estoque' | '/app/movimentacoes' | '/app/'
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/dados'
+    | '/app/estoque'
+    | '/app/lancar'
+    | '/app/movimentacoes'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -99,11 +137,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/dados': {
+      id: '/app/dados'
+      path: '/dados'
+      fullPath: '/app/dados'
+      preLoaderRoute: typeof AppDadosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/estoque': {
       id: '/app/estoque'
       path: '/estoque'
       fullPath: '/app/estoque'
       preLoaderRoute: typeof AppEstoqueRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/lancar': {
+      id: '/app/lancar'
+      path: '/lancar'
+      fullPath: '/app/lancar'
+      preLoaderRoute: typeof AppLancarRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/movimentacoes': {
@@ -117,13 +169,17 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppDadosRoute: typeof AppDadosRoute
   AppEstoqueRoute: typeof AppEstoqueRoute
+  AppLancarRoute: typeof AppLancarRoute
   AppMovimentacoesRoute: typeof AppMovimentacoesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDadosRoute: AppDadosRoute,
   AppEstoqueRoute: AppEstoqueRoute,
+  AppLancarRoute: AppLancarRoute,
   AppMovimentacoesRoute: AppMovimentacoesRoute,
   AppIndexRoute: AppIndexRoute,
 }
