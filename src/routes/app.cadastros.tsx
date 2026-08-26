@@ -119,11 +119,8 @@ function CadastrosPage() {
     setEditando(null);
   };
 
-  const toggleAtivo = async (
-    aba: Aba,
-    item: Record<string, unknown>,
-    campo: "ativo" | "status",
-  ) => {
+  const toggleAtivo = async (aba: Aba, row: object, campo: "ativo" | "status") => {
+    const item = row as Record<string, unknown>;
     const novoValor =
       campo === "ativo" ? !item["ativo"] : item["status"] === "ATIVO" ? "INATIVO" : "ATIVO";
     // @ts-expect-error acesso dinâmico ao repositório

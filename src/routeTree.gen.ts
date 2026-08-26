@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppCadastrosRouteImport } from './routes/app.cadastros'
 import { Route as AppDadosRouteImport } from './routes/app.dados'
 import { Route as AppEstoqueRouteImport } from './routes/app.estoque'
 import { Route as AppLancarRouteImport } from './routes/app.lancar'
@@ -30,6 +31,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCadastrosRoute = AppCadastrosRouteImport.update({
+  id: '/cadastros',
+  path: '/cadastros',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDadosRoute = AppDadosRouteImport.update({
@@ -56,6 +62,7 @@ const AppMovimentacoesRoute = AppMovimentacoesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
   '/app/lancar': typeof AppLancarRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
   '/app/lancar': typeof AppLancarRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/cadastros': typeof AppCadastrosRoute
   '/app/dados': typeof AppDadosRoute
   '/app/estoque': typeof AppEstoqueRoute
   '/app/lancar': typeof AppLancarRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/app/cadastros'
     | '/app/dados'
     | '/app/estoque'
     | '/app/lancar'
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app/cadastros'
     | '/app/dados'
     | '/app/estoque'
     | '/app/lancar'
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/app/cadastros'
     | '/app/dados'
     | '/app/estoque'
     | '/app/lancar'
@@ -137,6 +149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/cadastros': {
+      id: '/app/cadastros'
+      path: '/cadastros'
+      fullPath: '/app/cadastros'
+      preLoaderRoute: typeof AppCadastrosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/dados': {
       id: '/app/dados'
       path: '/dados'
@@ -169,6 +188,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppCadastrosRoute: typeof AppCadastrosRoute
   AppDadosRoute: typeof AppDadosRoute
   AppEstoqueRoute: typeof AppEstoqueRoute
   AppLancarRoute: typeof AppLancarRoute
@@ -177,6 +197,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCadastrosRoute: AppCadastrosRoute,
   AppDadosRoute: AppDadosRoute,
   AppEstoqueRoute: AppEstoqueRoute,
   AppLancarRoute: AppLancarRoute,
