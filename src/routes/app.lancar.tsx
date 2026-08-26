@@ -146,13 +146,26 @@ function Formulario({ modo }: { modo: string }) {
   };
 
   const salvar = async () => {
-    if (!produtoId) return toast.error("Selecione um produto");
-    if (!(qtd > 0)) return toast.error("Informe uma quantidade maior que zero");
-    if (!data) return toast.error("Informe a data");
-    if (cfg.tipo === "TRANSFERENCIA" && (!localId || !localDestinoId))
-      return toast.error("Informe local de origem e destino");
-    if (cfg.tipo === "AJUSTE" && !observacao.trim())
-      return toast.error("Informe o motivo do ajuste");
+    if (!produtoId) {
+      toast.error("Selecione um produto");
+      return;
+    }
+    if (!(qtd > 0)) {
+      toast.error("Informe uma quantidade maior que zero");
+      return;
+    }
+    if (!data) {
+      toast.error("Informe a data");
+      return;
+    }
+    if (cfg.tipo === "TRANSFERENCIA" && (!localId || !localDestinoId)) {
+      toast.error("Informe local de origem e destino");
+      return;
+    }
+    if (cfg.tipo === "AJUSTE" && !observacao.trim()) {
+      toast.error("Informe o motivo do ajuste");
+      return;
+    }
     if (resultante < 0 && cfg.tipo !== "TRANSFERENCIA") {
       const ok = confirm(
         `Esta operação deixa o estoque negativo (${num(resultante)} ${unidade?.sigla ?? ""}). Confirmar mesmo assim?`,
