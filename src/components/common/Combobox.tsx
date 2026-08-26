@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export interface Opcao {
   value: string;
   label: string;
-  hint?: string;
+  hint?: string | undefined;
 }
 
 export function Combobox({
