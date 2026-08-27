@@ -506,10 +506,11 @@ function Campo({
   onChange: (v: string) => void;
   className?: string;
 }) {
+  const id = `campo-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`;
   return (
     <div className={`space-y-1.5 ${className ?? ""}`}>
-      <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
