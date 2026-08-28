@@ -85,6 +85,7 @@ export interface Movimentacao {
   empresa_id?: ID | null | undefined;
   local_id?: ID | null | undefined;
   local_destino_id?: ID | null | undefined;
+  movimentacao_origem_id?: ID | null | undefined; // devolução vinculada a uma saída
   observacao?: string | null | undefined;
 }
 

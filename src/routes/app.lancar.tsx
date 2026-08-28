@@ -12,7 +12,7 @@ import { Combobox } from "@/components/common/Combobox";
 import { useDados, useProjetoAtivoId } from "@/hooks/useAppData";
 import { repo } from "@/services/repo";
 import { estoqueDoProduto } from "@/services/estoque";
-import { hoje, num } from "@/utils/format";
+import { formatarData, hoje, num } from "@/utils/format";
 import type { Movimentacao, MovimentacaoTipo } from "@/types";
 
 export const Route = createFileRoute("/app/lancar")({
@@ -35,13 +35,7 @@ export const Route = createFileRoute("/app/lancar")({
   component: LancarPage,
 });
 
-type Campo =
-  | "funcionario"
-  | "encarregado"
-  | "empresa"
-  | "local"
-  | "localDestino"
-  | "sinal";
+type Campo = "funcionario" | "empresa" | "local" | "sinal";
 
 const CONFIG: Record<
   string,
@@ -50,8 +44,9 @@ const CONFIG: Record<
   saida: {
     tipo: "SAIDA",
     titulo: "Saída",
-    descricao: "Retirada de material do almoxarifado. Diminui o estoque.",
-    campos: ["funcionario", "encarregado", "empresa", "local"],
+    descricao:
+      "Retirada de material do almoxarifado. Selecione o produto para ver a quantidade disponível.",
+    campos: ["funcionario", "local"],
   },
   entrada: {
     tipo: "ENTRADA",
@@ -62,8 +57,8 @@ const CONFIG: Record<
   devolucao: {
     tipo: "DEVOLUCAO",
     titulo: "Devolução",
-    descricao: "Retorno de material ao almoxarifado. Aumenta o estoque.",
-    campos: ["funcionario", "empresa", "local"],
+    descricao: "Selecione a saída de origem e informe a quantidade devolvida.",
+    campos: [],
   },
   ajuste: {
     tipo: "AJUSTE",
@@ -74,8 +69,8 @@ const CONFIG: Record<
   transferencia: {
     tipo: "TRANSFERENCIA",
     titulo: "Transferência",
-    descricao: "Move material entre locais.",
-    campos: ["local", "localDestino"],
+    descricao: "Move material entre locais, respeitando o estoque disponível.",
+    campos: [],
   },
 };
 
@@ -98,13 +93,17 @@ function LancarPage() {
         </TabsList>
         {Object.keys(CONFIG).map((k) => (
           <TabsContent key={k} value={k}>
-            <Formulario modo={k} />
+            {k === "devolucao" ? <FormularioDevolucao /> : <Formulario modo={k} />}
           </TabsContent>
         ))}
       </Tabs>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Formulário padrão (saída, entrada, ajuste, transferência)          */
+/* ------------------------------------------------------------------ */
 
 function Formulario({ modo }: { modo: string }) {
   const cfg = CONFIG[modo]!;
@@ -114,10 +113,11 @@ function Formulario({ modo }: { modo: string }) {
   const [produtoId, setProdutoId] = useState<string | null>(null);
   const [quantidade, setQuantidade] = useState("");
   const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
-  const [encarregadoId, setEncarregadoId] = useState<string | null>(null);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [localId, setLocalId] = useState<string | null>(null);
   const [localDestinoId, setLocalDestinoId] = useState<string | null>(null);
+  const [respOrigemId, setRespOrigemId] = useState<string | null>(null);
+  const [respDestinoId, setRespDestinoId] = useState<string | null>(null);
   const [sinal, setSinal] = useState<1 | -1>(1);
   const [observacao, setObservacao] = useState("");
 
@@ -134,10 +134,21 @@ function Formulario({ modo }: { modo: string }) {
     ? dados.unidades.find((u) => u.id === produto.unidade_id)
     : undefined;
   const atual = produtoId ? estoqueDoProduto(dados.movimentacoes, produtoId) : 0;
+  const limitaEstoque = cfg.tipo === "SAIDA" || cfg.tipo === "TRANSFERENCIA";
+  const disponivel = Math.max(atual, 0);
   const qtd = Number(quantidade.replace(",", ".")) || 0;
   const efeitoQtd =
     cfg.tipo === "SAIDA" ? -qtd : cfg.tipo === "AJUSTE" ? sinal * qtd : cfg.tipo === "TRANSFERENCIA" ? 0 : qtd;
   const resultante = atual + efeitoQtd;
+
+  // Funcionário define encarregado e empresa automaticamente
+  const funcionario = dados.funcionarios.find((f) => f.id === funcionarioId);
+  const encarregadoAuto = funcionario?.encarregado_id
+    ? dados.funcionarios.find((f) => f.id === funcionario.encarregado_id)
+    : undefined;
+  const empresaAuto = funcionario?.empresa_id
+    ? dados.empresas.find((e) => e.id === funcionario.empresa_id)
+    : undefined;
 
   const limpar = () => {
     setProdutoId(null);
@@ -147,11 +158,17 @@ function Formulario({ modo }: { modo: string }) {
 
   const salvar = async () => {
     if (!produtoId) {
-      toast.error("Selecione um produto");
+      toast.error("Selecione primeiro o produto");
       return;
     }
     if (!(qtd > 0)) {
       toast.error("Informe uma quantidade maior que zero");
+      return;
+    }
+    if (limitaEstoque && qtd > disponivel) {
+      toast.error(
+        `Quantidade acima do disponível (${num(disponivel)} ${unidade?.sigla ?? ""})`,
+      );
       return;
     }
     if (!data) {
@@ -182,24 +199,41 @@ function Formulario({ modo }: { modo: string }) {
       quantidade: qtd,
       sinal: cfg.tipo === "AJUSTE" ? sinal : 1,
       funcionario_id: funcionarioId,
-      encarregado_id: encarregadoId,
-      empresa_id: empresaId,
+      encarregado_id: funcionario?.encarregado_id ?? null,
+      empresa_id: cfg.campos.includes("funcionario")
+        ? (funcionario?.empresa_id ?? null)
+        : empresaId,
       local_id: localId,
       observacao: observacao.trim() || null,
     };
 
     if (cfg.tipo === "TRANSFERENCIA") {
+      const nomeOrigem = dados.locais.find((l) => l.id === localId)?.nome ?? "";
+      const nomeDestino = dados.locais.find((l) => l.id === localDestinoId)?.nome ?? "";
+      const respO = dados.funcionarios.find((f) => f.id === respOrigemId)?.nome ?? "—";
+      const respD = dados.funcionarios.find((f) => f.id === respDestinoId)?.nome ?? "—";
+      const nota = [
+        `Responsável origem: ${respO}`,
+        `Responsável destino: ${respD}`,
+        observacao.trim(),
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
       await repo.saveMovimentacao({
         ...base,
         sinal: -1,
         local_id: localId,
-        observacao: `Transferência para ${dados.locais.find((l) => l.id === localDestinoId)?.nome ?? ""}. ${observacao}`.trim(),
+        local_destino_id: localDestinoId,
+        funcionario_id: respOrigemId,
+        observacao: `Transferência para ${nomeDestino}. ${nota}`.trim(),
       });
       await repo.saveMovimentacao({
         ...base,
         sinal: 1,
         local_id: localDestinoId,
-        observacao: `Transferência de ${dados.locais.find((l) => l.id === localId)?.nome ?? ""}. ${observacao}`.trim(),
+        funcionario_id: respDestinoId,
+        observacao: `Transferência de ${nomeOrigem}. ${nota}`.trim(),
       });
     } else {
       await repo.saveMovimentacao(base);
@@ -222,31 +256,57 @@ function Formulario({ modo }: { modo: string }) {
           <p className="text-sm text-muted-foreground">{cfg.descricao}</p>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Data</Label>
-            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Quantidade {unidade ? `(${unidade.sigla})` : ""}</Label>
-            <Input
-              inputMode="decimal"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              placeholder="0"
-            />
-          </div>
+          {/* Produto sempre primeiro */}
           <div className="space-y-1.5 sm:col-span-2">
-            <Label>Produto</Label>
+            <Label>1. Produto</Label>
             <Combobox
               placeholder="Selecionar produto"
               value={produtoId}
-              onChange={setProdutoId}
+              onChange={(v) => {
+                setProdutoId(v);
+                setQuantidade("");
+              }}
               opcoes={produtos.map((p) => ({
                 value: p.id,
                 label: p.nome,
                 hint: dados.unidades.find((u) => u.id === p.unidade_id)?.sigla,
               }))}
             />
+            {produto && (
+              <p className="text-xs text-muted-foreground">
+                Disponível:{" "}
+                <span className="num font-semibold text-foreground">
+                  {num(atual)} {unidade?.sigla ?? ""}
+                </span>
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              2. Quantidade {unidade ? `(${unidade.sigla})` : ""}
+              {limitaEstoque && produto ? ` — máx. ${num(disponivel)}` : ""}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              {...(limitaEstoque ? { max: disponivel } : {})}
+              disabled={!produtoId}
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              placeholder="0"
+            />
+            {limitaEstoque && qtd > disponivel && (
+              <p className="text-xs text-destructive">
+                Acima do disponível ({num(disponivel)})
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Data</Label>
+            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </div>
 
           {cfg.campos.includes("sinal") && (
@@ -270,28 +330,29 @@ function Formulario({ modo }: { modo: string }) {
               </div>
             </div>
           )}
+
           {cfg.campos.includes("funcionario") && (
-            <div className="space-y-1.5">
-              <Label>Funcionário</Label>
-              <Combobox
-                placeholder="Selecionar"
-                value={funcionarioId}
-                onChange={setFuncionarioId}
-                opcoes={opt(funcAtivos)}
-              />
-            </div>
+            <>
+              <div className="space-y-1.5">
+                <Label>Funcionário</Label>
+                <Combobox
+                  placeholder="Selecionar"
+                  value={funcionarioId}
+                  onChange={setFuncionarioId}
+                  opcoes={opt(funcAtivos)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Encarregado (automático)</Label>
+                <Input readOnly value={encarregadoAuto?.nome ?? ""} placeholder="—" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Empresa (automático)</Label>
+                <Input readOnly value={empresaAuto?.nome ?? ""} placeholder="—" />
+              </div>
+            </>
           )}
-          {cfg.campos.includes("encarregado") && (
-            <div className="space-y-1.5">
-              <Label>Encarregado</Label>
-              <Combobox
-                placeholder="Selecionar"
-                value={encarregadoId}
-                onChange={setEncarregadoId}
-                opcoes={opt(funcAtivos)}
-              />
-            </div>
-          )}
+
           {cfg.campos.includes("empresa") && (
             <div className="space-y-1.5">
               <Label>Empresa</Label>
@@ -303,9 +364,10 @@ function Formulario({ modo }: { modo: string }) {
               />
             </div>
           )}
+
           {cfg.campos.includes("local") && (
             <div className="space-y-1.5">
-              <Label>{cfg.tipo === "TRANSFERENCIA" ? "Local de origem" : "Local"}</Label>
+              <Label>Local</Label>
               <Combobox
                 placeholder="Selecionar"
                 value={localId}
@@ -314,17 +376,48 @@ function Formulario({ modo }: { modo: string }) {
               />
             </div>
           )}
-          {cfg.campos.includes("localDestino") && (
-            <div className="space-y-1.5">
-              <Label>Local de destino</Label>
-              <Combobox
-                placeholder="Selecionar"
-                value={localDestinoId}
-                onChange={setLocalDestinoId}
-                opcoes={opt(locAtivos)}
-              />
-            </div>
+
+          {cfg.tipo === "TRANSFERENCIA" && (
+            <>
+              <div className="space-y-1.5">
+                <Label>Local de origem</Label>
+                <Combobox
+                  placeholder="Selecionar"
+                  value={localId}
+                  onChange={setLocalId}
+                  opcoes={opt(locAtivos)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Local de destino</Label>
+                <Combobox
+                  placeholder="Selecionar"
+                  value={localDestinoId}
+                  onChange={setLocalDestinoId}
+                  opcoes={opt(locAtivos)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Responsável pela origem</Label>
+                <Combobox
+                  placeholder="Selecionar"
+                  value={respOrigemId}
+                  onChange={setRespOrigemId}
+                  opcoes={opt(funcAtivos)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Responsável pelo destino</Label>
+                <Combobox
+                  placeholder="Selecionar"
+                  value={respDestinoId}
+                  onChange={setRespDestinoId}
+                  opcoes={opt(funcAtivos)}
+                />
+              </div>
+            </>
           )}
+
           <div className="space-y-1.5 sm:col-span-2">
             <Label>{cfg.tipo === "AJUSTE" ? "Motivo / observação" : "Observação"}</Label>
             <Textarea
@@ -342,50 +435,259 @@ function Formulario({ modo }: { modo: string }) {
         </CardContent>
       </Card>
 
-      <Card className="h-fit">
+      <ResumoProduto
+        nome={produto?.nome}
+        sigla={unidade?.sigla}
+        minimo={produto?.estoque_minimo ?? 0}
+        atual={atual}
+        resultante={resultante}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Devolução — baseada numa saída existente                            */
+/* ------------------------------------------------------------------ */
+
+function FormularioDevolucao() {
+  const [projetoId] = useProjetoAtivoId();
+  const dados = useDados(projetoId);
+  const [data, setData] = useState(hoje());
+  const [origemId, setOrigemId] = useState<string | null>(null);
+  const [quantidade, setQuantidade] = useState("");
+  const [observacao, setObservacao] = useState("");
+
+  if (!dados || !projetoId)
+    return <p className="text-sm text-muted-foreground">Carregando…</p>;
+
+  const saidas = dados.movimentacoes.filter((m) => m.tipo === "SAIDA");
+  const devolvidoPor = (saidaId: string) =>
+    dados.movimentacoes
+      .filter((m) => m.tipo === "DEVOLUCAO" && m.movimentacao_origem_id === saidaId)
+      .reduce((a, m) => a + m.quantidade, 0);
+
+  const nomeProduto = (id: string) => dados.produtos.find((p) => p.id === id)?.nome ?? "—";
+  const nomeFunc = (id?: string | null) =>
+    dados.funcionarios.find((f) => f.id === id)?.nome ?? "—";
+
+  const opcoes = saidas
+    .map((m) => {
+      const restante = m.quantidade - devolvidoPor(m.id);
+      return { m, restante };
+    })
+    .filter((x) => x.restante > 0)
+    .map(({ m, restante }) => ({
+      value: m.id,
+      label: `${formatarData(m.data)} · ${nomeProduto(m.produto_id)} · ${nomeFunc(m.funcionario_id)}`,
+      hint: `restam ${num(restante)}`,
+    }));
+
+  const origem = saidas.find((m) => m.id === origemId);
+  const produto = origem ? dados.produtos.find((p) => p.id === origem.produto_id) : undefined;
+  const unidade = produto?.unidade_id
+    ? dados.unidades.find((u) => u.id === produto.unidade_id)
+    : undefined;
+  const entregue = origem?.quantidade ?? 0;
+  const jaDevolvido = origem ? devolvidoPor(origem.id) : 0;
+  const maximo = Math.max(entregue - jaDevolvido, 0);
+  const qtd = Number(quantidade.replace(",", ".")) || 0;
+  const atual = origem ? estoqueDoProduto(dados.movimentacoes, origem.produto_id) : 0;
+
+  const salvar = async () => {
+    if (!origem) {
+      toast.error("Selecione a movimentação de saída");
+      return;
+    }
+    if (!(qtd > 0)) {
+      toast.error("A quantidade devolvida deve ser maior que zero");
+      return;
+    }
+    if (qtd > maximo) {
+      toast.error(`A devolução não pode passar de ${num(maximo)} ${unidade?.sigla ?? ""}`);
+      return;
+    }
+    await repo.saveMovimentacao({
+      projeto_id: projetoId,
+      data,
+      tipo: "DEVOLUCAO",
+      produto_id: origem.produto_id,
+      quantidade: qtd,
+      sinal: 1,
+      funcionario_id: origem.funcionario_id ?? null,
+      encarregado_id: origem.encarregado_id ?? null,
+      empresa_id: origem.empresa_id ?? null,
+      local_id: origem.local_id ?? null,
+      movimentacao_origem_id: origem.id,
+      observacao:
+        `Devolução da saída de ${formatarData(origem.data)} (${nomeFunc(origem.funcionario_id)}). ${observacao.trim()}`.trim(),
+    });
+    toast.success("Devolução registrada");
+    setOrigemId(null);
+    setQuantidade("");
+    setObservacao("");
+  };
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Resumo do produto</CardTitle>
+          <CardTitle className="text-base">Devolução</CardTitle>
+          <p className="text-sm text-muted-foreground">{CONFIG['devolucao']!.descricao}</p>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {!produto ? (
-            <p className="text-muted-foreground">Selecione um produto para ver o estoque.</p>
-          ) : (
-            <>
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Produto</p>
-                <p className="font-medium">{produto.nome}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Unidade</p>
-                  <p className="font-medium">{unidade?.sigla ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Estoque mínimo</p>
-                  <p className="num font-medium">{num(produto.estoque_minimo)}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Estoque atual</p>
-                  <p className="num font-display text-2xl font-bold">{num(atual)}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Após lançamento</p>
-                  <p
-                    className={`num font-display text-2xl font-bold ${resultante < 0 ? "text-destructive" : ""}`}
-                  >
-                    {num(resultante)}
-                  </p>
-                </div>
-              </div>
-              {resultante < produto.estoque_minimo && (
-                <Badge className="bg-warning text-warning-foreground">
-                  Ficará abaixo do estoque mínimo
-                </Badge>
-              )}
-            </>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>1. Movimentação de saída</Label>
+            <Combobox
+              placeholder="Selecionar saída"
+              vazio="Nenhuma saída pendente de devolução"
+              value={origemId}
+              onChange={(v) => {
+                setOrigemId(v);
+                setQuantidade("");
+              }}
+              opcoes={opcoes}
+            />
+          </div>
+
+          {origem && (
+            <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-md border p-3 text-sm sm:grid-cols-4">
+              <Campo titulo="Produto" valor={nomeProduto(origem.produto_id)} />
+              <Campo titulo="Entregue" valor={`${num(entregue)} ${unidade?.sigla ?? ""}`} />
+              <Campo titulo="Já devolvido" valor={num(jaDevolvido)} />
+              <Campo titulo="Pode devolver" valor={num(maximo)} />
+            </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label>
+              2. Quantidade a devolver {unidade ? `(${unidade.sigla})` : ""}
+              {origem ? ` — máx. ${num(maximo)}` : ""}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={maximo}
+              step="any"
+              disabled={!origem}
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              placeholder="0"
+            />
+            {qtd > maximo && (
+              <p className="text-xs text-destructive">Acima do permitido ({num(maximo)})</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Data</Label>
+            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Observação</Label>
+            <Textarea
+              rows={2}
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+            />
+          </div>
+
+          <div className="sm:col-span-2 flex gap-2">
+            <Button onClick={salvar} disabled={!origem || !(qtd > 0) || qtd > maximo}>
+              Registrar devolução
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOrigemId(null);
+                setQuantidade("");
+                setObservacao("");
+              }}
+            >
+              Limpar
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <ResumoProduto
+        nome={produto?.nome}
+        sigla={unidade?.sigla}
+        minimo={produto?.estoque_minimo ?? 0}
+        atual={atual}
+        resultante={atual + qtd}
+      />
     </div>
+  );
+}
+
+function Campo({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div>
+      <p className="text-xs uppercase text-muted-foreground">{titulo}</p>
+      <p className="num font-medium">{valor}</p>
+    </div>
+  );
+}
+
+function ResumoProduto({
+  nome,
+  sigla,
+  minimo,
+  atual,
+  resultante,
+}: {
+  nome?: string | undefined;
+  sigla?: string | undefined;
+  minimo: number;
+  atual: number;
+  resultante: number;
+}) {
+  return (
+    <Card className="h-fit">
+      <CardHeader>
+        <CardTitle className="text-base">Resumo do produto</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {!nome ? (
+          <p className="text-muted-foreground">Selecione um produto para ver o estoque.</p>
+        ) : (
+          <>
+            <div>
+              <p className="text-xs uppercase text-muted-foreground">Produto</p>
+              <p className="font-medium">{nome}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Unidade</p>
+                <p className="font-medium">{sigla ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Estoque mínimo</p>
+                <p className="num font-medium">{num(minimo)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Estoque atual</p>
+                <p className="num font-display text-2xl font-bold">{num(atual)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Após lançamento</p>
+                <p
+                  className={`num font-display text-2xl font-bold ${resultante < 0 ? "text-destructive" : ""}`}
+                >
+                  {num(resultante)}
+                </p>
+              </div>
+            </div>
+            {resultante < minimo && (
+              <Badge className="bg-warning text-warning-foreground">
+                Ficará abaixo do estoque mínimo
+              </Badge>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
